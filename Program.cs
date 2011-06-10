@@ -46,7 +46,11 @@ namespace ConsoleApplication1
         static CodeTypeReference CreateFuncType(IEnumerable<CodeTypeReference> arguments)
         {
             var argumentsArr = arguments.ToArray();
-            var type = Type.GetType("System.Func`" + argumentsArr.Length);
+
+            var sampleFuncType = argumentsArr.Length <= 9 ? typeof(Func<,>) : typeof(Func<,,,,,,,,,>);
+            var assembly = Assembly.GetAssembly(sampleFuncType);
+            var type = assembly.GetType("System.Func`" + argumentsArr.Length);
+
             var result = new CodeTypeReference(type);
             result.TypeArguments.AddRange(argumentsArr.ToArray());
             return result;
@@ -82,7 +86,7 @@ namespace ConsoleApplication1
 
             curryingNamespace.Types.Add(funcExtensionsClass);
 
-            for (int i = 1; i <= 8; i++)
+            for (int i = 1; i <= 16; i++)
             {
                 string funcParameterName = "func";
 
