@@ -4,59 +4,69 @@ using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Linq.Expressions;
 using System.Reflection;
-using System.Runtime.CompilerServices;
-using System.Text;
 using Microsoft.CSharp;
 using Svicks_Tools;
-using Currying;
 
 namespace ConsoleApplication1
 {
-    class Program
+    static class Program
     {
-        private static string ResultTypeParameterName = "TResult";
+        private static readonly CodeTypeParameter ResultTypeParameter = new CodeTypeParameter("TResult");
 
-        static string CreateTypeParameterName(int i)
+        static CodeTypeParameter CreateTypeParameter(int i)
         {
-            return "T" + i;
+            return new CodeTypeParameter("T" + i);
         }
 
-        static string CreateCurriedFuncType(int currentLevel, int maxLevel)
+        static CodeTypeReference CreateCurriedFuncType(int currentLevel, int maxLevel)
         {
             if (currentLevel == maxLevel)
-                return CreateFuncType(CreateTypeParameterName(currentLevel), ResultTypeParameterName);
+                return CreateFuncType(CreateTypeParameter(currentLevel), ResultTypeParameter);
 
-            return CreateFuncType(CreateTypeParameterName(currentLevel),
+            return CreateFuncType(CreateTypeParameter(currentLevel).ToCodeTypeReference(),
                                   CreateCurriedFuncType(currentLevel + 1, maxLevel));
         }
 
-        static string CreateFuncType(params string[] arguments)
+        static CodeTypeReference CreateFuncType(params CodeTypeParameter[] arguments)
         {
-            return CreateFuncType((IEnumerable<string>)arguments);
+            return CreateFuncType((IEnumerable<CodeTypeParameter>)arguments);
         }
 
-        static string CreateFuncType(IEnumerable<string> arguments)
+        static CodeTypeReference CreateFuncType(params CodeTypeReference[] arguments)
         {
-            return string.Format("Func{0}", CreateFuncArguments(arguments));
+            return CreateFuncType((IEnumerable<CodeTypeReference>)arguments);
         }
 
-        static string CreateFuncType(int arguments)
+        static CodeTypeReference CreateFuncType(IEnumerable<CodeTypeParameter> arguments)
         {
-            return CreateFuncType(CreateFuncTypeParameters(arguments));
+            return CreateFuncType(arguments.Select(ToCodeTypeReference));
         }
 
-        private static string CreateFuncArguments(IEnumerable<string> arguments)
+        static CodeTypeReference CreateFuncType(IEnumerable<CodeTypeReference> arguments)
         {
-            return string.Format("<{0}>", string.Join(", ", arguments));
+            var argumentsArr = arguments.ToArray();
+            var type = Type.GetType("System.Func`" + argumentsArr.Length);
+            var result = new CodeTypeReference(type);
+            result.TypeArguments.AddRange(argumentsArr.ToArray());
+            return result;
         }
 
-        private static IEnumerable<string> CreateFuncTypeParameters(int arguments)
+        static CodeTypeReference CreateFuncType(int arguments)
+        {
+            return CreateFuncType(CreateFuncTypeParameters(arguments).Select(ToCodeTypeReference));
+        }
+
+        private static IEnumerable<CodeTypeParameter> CreateFuncTypeParameters(int arguments)
         {
             for (int i = 1; i <= arguments; i++)
-                yield return CreateTypeParameterName(i);
-            yield return ResultTypeParameterName;
+                yield return CreateTypeParameter(i);
+            yield return ResultTypeParameter;
+        }
+
+        static CodeTypeReference ToCodeTypeReference(this CodeTypeParameter parameter)
+        {
+            return new CodeTypeReference(parameter);
         }
 
         static void Main()
@@ -68,13 +78,11 @@ namespace ConsoleApplication1
             var curryingNamespace = new CodeNamespace("Currying");
             compileUnit.Namespaces.Add(curryingNamespace);
 
-            curryingNamespace.Imports.Add(new CodeNamespaceImport("System"));
-
             var funcExtensionsClass = new CodeTypeDeclaration("FuncExtensions");
 
             curryingNamespace.Types.Add(funcExtensionsClass);
 
-            for (int i = 1; i <= 3; i++)
+            for (int i = 1; i <= 8; i++)
             {
                 string funcParameterName = "func";
 
@@ -83,11 +91,11 @@ namespace ConsoleApplication1
                     {
                         Name = "Curry",
                         Attributes = MemberAttributes.Static | MemberAttributes.Public,
-                        ReturnType = new CodeTypeReference(CreateCurriedFuncType(1, i)),
+                        ReturnType = CreateCurriedFuncType(1, i),
                         Parameters =
-                            { new CodeParameterDeclarationExpression("this " + CreateFuncType(i), funcParameterName) }
+                            { new CodeParameterDeclarationExpression(CreateFuncType(i), funcParameterName) }
                     };
-                curryMethod.TypeParameters.AddRange(CreateFuncTypeParameters(i).Select(p => new CodeTypeParameter(p)).ToArray());
+                curryMethod.TypeParameters.AddRange(CreateFuncTypeParameters(i).ToArray());
 
                 var parameters = Enumerable.Range(1, i).Select(j => "p" + j).ToArray();
 
@@ -106,6 +114,7 @@ namespace ConsoleApplication1
             string code = writer.ToString();
 
             code = code.Replace("class FuncExtensions", "static class FuncExtensions");
+            code = code.Replace("(Func<", "(this Func<");
 
             code.Dump();
 
