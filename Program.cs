@@ -100,10 +100,14 @@ namespace ConsoleApplication1
 
                 var parameters = Enumerable.Range(1, i).Select(j => "p" + j).ToArray();
 
-                string lambda = string.Format("return {0} => {1}({2});", string.Join(" => ", parameters),
+                string lambda = string.Format("{0} => {1}({2})", string.Join(" => ", parameters),
                                               funcParameterName, string.Join(", ", parameters));
 
-                curryMethod.Statements.Add(new CodeSnippetStatement(lambda));
+                var lambdaExpression = new CodeSnippetExpression(lambda);
+
+                var returnStatement = new CodeMethodReturnStatement(lambdaExpression);
+
+                curryMethod.Statements.Add(returnStatement);
 
                 funcExtensionsClass.Members.Add(curryMethod);
             }
