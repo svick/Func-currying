@@ -75,15 +75,12 @@ namespace ConsoleApplication1
 
         static void Main()
         {
-            var provider = new CSharpCodeProvider();
-
             var compileUnit = new CodeCompileUnit();
 
             var curryingNamespace = new CodeNamespace("Currying");
             compileUnit.Namespaces.Add(curryingNamespace);
 
             var funcExtensionsClass = new CodeTypeDeclaration("FuncExtensions");
-
             curryingNamespace.Types.Add(funcExtensionsClass);
 
             for (int i = 1; i <= 16; i++)
@@ -113,7 +110,9 @@ namespace ConsoleApplication1
 
             var writer = new StringWriter();
 
-            provider.GenerateCodeFromCompileUnit(compileUnit, writer, new CodeGeneratorOptions{BracingStyle = "C"});
+            var provider = new CSharpCodeProvider();
+
+            provider.GenerateCodeFromCompileUnit(compileUnit, writer, new CodeGeneratorOptions { BracingStyle = "C" });
 
             string code = writer.ToString();
 
